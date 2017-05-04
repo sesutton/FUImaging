@@ -6,8 +6,7 @@ import scipy.ndimage as sn
 import sklearn.decomposition as sld
 from regularizedHALS import regHALS
 from os.path import abspath
-from numpy.ctypeslib import ndpointer
-import ctypes as ct
+from nmf_cuda import nmf_cuda
 
 
 # available Filter and transformation of size argument
@@ -310,6 +309,36 @@ class NNMF():
     def __call__(self, timeseries):
         self.NNMF = regHALS(self.num_comp, shape=timeseries.shape, **self.param)
         self.A, self.X, self.obj = self.NNMF.fit(timeseries.matrix_shaped())
+
+        out = timeseries.copy()
+        base = self.X
+        new_norm = np.diag(base[:, np.argmax(np.abs(base), 1)])
+        base /= new_norm.reshape((-1, 1)) + 1E-15
+        out._series = self.A
+        out._series *= new_norm
+
+        out.label_objects = ['mode' + str(i) for i in range(base.shape[0])]
+        out.shape = (len(out.label_objects),)
+        out.typ += ['nested']
+        out.name += '_nnmf'
+        out.base = TimeSeries(base, shape=timeseries.shape, name=out.name,
+                              label_stimuli=out.label_objects)
+        out.reconstruction_error = self.obj
+        return out
+
+class NNMF_cuda():
+    """Performs NMF decomposition
+
+    for parameters see documentation of regularizedHALS.regHALS
+    """
+
+    def __init__(self, num_components=100, **param):
+        self.param = param
+        self.num_comp = num_components
+
+    def __call__(self, timeseries):
+        self.NNMF_cuda = nmf_cuda(self.num_comp, shape=timeseries.shape, **self.param)
+        self.A, self.X, self.obj = self.NNMF_cuda.fit(timeseries.matrix_shaped())
 
         out = timeseries.copy()
         base = self.X

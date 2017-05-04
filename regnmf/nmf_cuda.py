@@ -28,16 +28,13 @@ def convex_cone(data, latents):
     return res
 
 
-def get_nmf(self):
-
+def get_nmf():
         floatp = ndpointer(ct.c_float, flags="F_CONTIGUOUS")
-
-        lib = ct.CDLL('./cuda/libnmf.so')
+        lib = ct.CDLL('../../regnmf/cuda/libnmf.so')
         func = lib.nmf
         func.restype = None
         func.argtypes = [floatp, floatp, floatp, ct.c_int, ct.c_int, ct.c_int]
         return func
-
 
 
 # Different sparsnes norms
@@ -94,9 +91,9 @@ class nmf_cuda(object):
         self.sparse_fct = NORMS[kwargs.get("sparse_fct", 'global_sparse')]
 
     def nmf(self, Y, A, X):
-        __nmf = get_nmf()
         m, n = Y.shape
         k, _ = X.shape
+        __nmf = get_nmf()
         __nmf(A, X, Y, m, n, k)
         return
 
@@ -104,7 +101,7 @@ class nmf_cuda(object):
         """perform NMF of Y until stop criterion """
         self.psi = 1E-12  # numerical stabilization
 
-        Y = np.asfortranarray(Y)
+        Y = np.asfortranarray(Y).astype(np.float32)
         A, X = self.init_factors(Y)
         # create neighborhood matrix
         if self.smooth_param:
@@ -143,7 +140,7 @@ class nmf_cuda(object):
             X = self.init['X']
             A = self.init['A']
 
-        return np.asfortranarray(A), np.asfortranarray(X)
+        return np.asfortranarray(A).astype(np.float32), np.asfortranarray(X).astype(np.float32)
 
     def create_nn_matrix(self):
         """creates neighborhood matrix"""
