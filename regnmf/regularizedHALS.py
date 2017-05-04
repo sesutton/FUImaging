@@ -80,7 +80,6 @@ class regHALS(object):
     def fit(self, Y):
         """perform NMF of Y until stop criterion """
         self.psi = 1E-12 # numerical stabilization
-        YT = Y.T
 
         A, X = self.init_factors(Y)
         # create neighborhood matrix
@@ -98,7 +97,7 @@ class regHALS(object):
             if count >= self.maxcount: break
             count += 1
 
-            A, X = self.update(Y, YT, A, X)
+            A, X = self.update(Y, A, X)
             obj = np.linalg.norm(Y - np.dot(A, X)) / nrm_Y
 
             delta_obj = obj - obj_old
@@ -155,7 +154,7 @@ class regHALS(object):
                 nn_matrix.append(1.*temp.flatten() / np.sum(temp))
         return np.array(nn_matrix)
 
-    def update(self, Y, YT, A, X):
+    def update(self, Y, A, X):
         """single update step"""
 
         E = Y - np.dot(A, X)
@@ -165,11 +164,11 @@ class regHALS(object):
             xj = X[j, :]
 
             Rt = E + np.outer(aj, xj)
-            xj = self.project_residuen(Rt.T, j, aj, self.sparse_param, self.smooth_param,
+            xj = self.project_residuals(Rt.T, j, aj, self.sparse_param, self.smooth_param,
                                        X=X, sparse_fct=self.sparse_fct)
             xj /= self.basenorm(xj) + self.psi
 
-            aj = self.project_residuen(Rt, j, xj, rectify=not(self.neg_time), X=A.T)
+            aj = self.project_residuals(Rt, j, xj, rectify=not(self.neg_time), X=A.T)
             aj /= self.timenorm(aj) + self.psi
 
             Rt -= np.outer(aj, xj)
@@ -181,7 +180,7 @@ class regHALS(object):
 
         return A, X
 
-    def project_residuen(self, res, oldind, to_base, sparse_param=0,
+    def project_residuals(self, res, oldind, to_base, sparse_param=0,
                          smoothness=0, rectify=True, X=0, sparse_fct=''):
         """performs local optimization"""
 
