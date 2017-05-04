@@ -6,6 +6,9 @@ import scipy.ndimage as sn
 import sklearn.decomposition as sld
 from regularizedHALS import regHALS
 from os.path import abspath
+from numpy.ctypeslib import ndpointer
+import ctypes as ct
+
 
 # available Filter and transformation of size argument
 FILT = {'median': sn.filters.median_filter, 'gauss': sn.filters.gaussian_filter,
@@ -323,6 +326,8 @@ class NNMF():
                               label_stimuli=out.label_objects)
         out.reconstruction_error = self.obj
         return out
+
+
 
 class RoiActivation():
     """extracts timecourse from ROI masks """
