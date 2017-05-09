@@ -561,6 +561,8 @@ float matrix_difference_norm_d(action_t action, matrix a, matrix b, int* params)
 	}
 	switch (block1)
 	{
+		case 1024:
+		reduce1DDiff<1024><<< dimGrid, dimBlock, 2*dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,result_d,N); break;
 	    case 512:
 		reduce1DDiff<512><<< dimGrid, dimBlock, 2*dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,result_d,N); break;
 	    case 256:
@@ -584,6 +586,8 @@ float matrix_difference_norm_d(action_t action, matrix a, matrix b, int* params)
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce1DDiff<1024><<< dimGrid, dimBlock, 2*dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,r1,N); break;
 	    case 512:
 		reduce1DDiff<512><<< dimGrid, dimBlock, 2*dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,r1,N); break;
 	    case 256:
@@ -601,6 +605,8 @@ float matrix_difference_norm_d(action_t action, matrix a, matrix b, int* params)
 	}
 	switch (block2)
 	{
+		case 1024:
+		reduce2D<1024><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 512:
 		reduce2D<512><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 256:
@@ -687,6 +693,8 @@ float matrix_div_d(action_t action, matrix a, matrix b, int* params){
 	}
 	switch (block1)
 	{
+		case 1024:
+		reduce1DDiv<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,result_d,N); break;
 	    case 512:
 		reduce1DDiv<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,result_d,N); break;
 	    case 256:
@@ -710,6 +718,8 @@ float matrix_div_d(action_t action, matrix a, matrix b, int* params){
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce1DDiv<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,r1,N); break;
 	    case 512:
 		reduce1DDiv<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,b.mat_d,r1,N); break;
 	    case 256:
@@ -727,6 +737,8 @@ float matrix_div_d(action_t action, matrix a, matrix b, int* params){
 	}
 	switch (block2)
 	{
+	    case 1024:
+		reduce2D<1024><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 512:
 		reduce2D<512><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 256:
@@ -1058,6 +1070,8 @@ void sum_rows_d(action_t action, matrix a, matrix c, int* params){
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce2DStrided<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,c.mat_d,N,M); break;
 	    case 512:
 		reduce2DStrided<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,c.mat_d,N,M); break;
 	    case 256:
@@ -1081,6 +1095,8 @@ void sum_rows_d(action_t action, matrix a, matrix c, int* params){
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce2DStrided<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,r1,N,M); break;
 	    case 512:
 		reduce2DStrided<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,r1,N,M); break;
 	    case 256:
@@ -1098,6 +1114,8 @@ void sum_rows_d(action_t action, matrix a, matrix c, int* params){
 	}
 	switch (block2)
 	{
+	    case 1024:
+		reduce2DStrided<1024><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,c.mat_d,dimGrid.x,M); break;
 	    case 512:
 		reduce2DStrided<512><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,c.mat_d,dimGrid.x,M); break;
 	    case 256:
@@ -1173,6 +1191,8 @@ float nan_check_d(action_t action, matrix a, int* params)
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce1DNan<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,result_d,N); break;
 	    case 512:
 		reduce1DNan<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,result_d,N); break;
 	    case 256:
@@ -1196,6 +1216,8 @@ float nan_check_d(action_t action, matrix a, int* params)
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce1DNan<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,r1,N); break;
 	    case 512:
 		reduce1DNan<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,r1,N); break;
 	    case 256:
@@ -1213,6 +1235,8 @@ float nan_check_d(action_t action, matrix a, int* params)
 	}
 	switch (block2)
 	{
+	    case 1024:
+		reduce2D<1024><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 512:
 		reduce2D<512><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 256:
@@ -1293,6 +1317,8 @@ float zero_check_d(action_t action, matrix a, int* params)
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce1DEql<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,result_d,N); break;
 	    case 512:
 		reduce1DEql<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,result_d,N); break;
 	    case 256:
@@ -1316,6 +1342,8 @@ float zero_check_d(action_t action, matrix a, int* params)
 	}
 	switch (block1)
 	{
+	    case 1024:
+		reduce1DEql<1024><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,r1,N); break;
 	    case 512:
 		reduce1DEql<512><<< dimGrid, dimBlock, dimBlock.x*sizeof(float) >>>(a.mat_d,r1,N); break;
 	    case 256:
@@ -1333,6 +1361,8 @@ float zero_check_d(action_t action, matrix a, int* params)
 	}
 	switch (block2)
 	{
+	    case 1024:
+		reduce2D<1024><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 512:
 		reduce2D<512><<< dimGrid2, dimBlock2, dimBlock2.x*sizeof(float) >>>(r1,result_d,dimGrid.x); break;
 	    case 256:

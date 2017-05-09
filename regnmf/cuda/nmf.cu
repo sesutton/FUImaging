@@ -5,11 +5,11 @@
 #include<sys/time.h>
 
 // status printed and convergence check every ITER_CHECK iterations
-#define ITER_CHECK 100
+#define ITER_CHECK 25
 // max number of iterations
-#define MAX_ITER 10000
+#define MAX_ITER 100
 // set to zero to guarantee MAX_ITER iterations, 0.001 is a good value otherwise
-#define CONVERGE_THRESH 0.001
+#define CONVERGE_THRESH 1E-5
 
 // number of timers used in profiling (don't change)
 #define TIMERS 10  
