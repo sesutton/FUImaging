@@ -194,7 +194,6 @@ class regHALS(object):
 
         if smoothness > 0:
             new_vec += smoothness * np.dot(self.S, X[oldind])
-
         new_vec /= (np.linalg.norm(to_base) ** 2 + self.psi + smoothness)
         if rectify:
             new_vec[new_vec < 0] = 0

@@ -118,9 +118,6 @@ class nmf_cuda(object):
 
         obj = np.linalg.norm(Y - np.dot(A, X)) / nrm_Y
 
-        A = np.ascontiguousarray(A)
-        X = np.ascontiguousarray(X)
-
         return A, X, obj
 
     def init_factors(self, Y):
@@ -159,6 +156,27 @@ class nmf_cuda(object):
                     temp[i, j + 1] = 1
                 nn_matrix.append(1. * temp.flatten() / np.sum(temp))
         return np.array(nn_matrix)
+
+    def project_residuals(self, res, oldind, to_base, sparse_param=0,
+                          smoothness=0, rectify=True, X=0, sparse_fct=''):
+        """performs local optimization"""
+
+        new_vec = np.dot(res, to_base)
+
+        if sparse_param > 0:
+            mask = np.ones(X.shape[0]).astype('bool')
+            mask[oldind] = False
+            occupation = sparse_fct(new_vec, X[mask])
+            new_vec -= sparse_param * occupation
+
+        if smoothness > 0:
+            new_vec += smoothness * np.dot(self.S, X[oldind])
+
+        new_vec /= (np.linalg.norm(to_base) ** 2 + self.psi + smoothness)
+        if rectify:
+            new_vec[new_vec < 0] = 0
+
+        return new_vec
 
 
 
