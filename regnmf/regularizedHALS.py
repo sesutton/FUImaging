@@ -26,8 +26,8 @@ def convex_cone(data, latents):
     return res
 
 # Different sparsnes norms
-NORMS = {'global_sparse': lambda new_vec, x: np.sum(x, 0),
-         'local_sparse': lambda new_vec, x: 1}
+NORMS = {'global_sparse': lambda x: np.sum(x, 0),
+         'local_sparse': lambda x: 1}
 
 class regHALS(object):
     """NMF with regularized HALS algorithm"""
@@ -189,8 +189,9 @@ class regHALS(object):
         if sparse_param > 0:
             mask = np.ones(X.shape[0]).astype('bool')
             mask[oldind] = False
-            occupation = sparse_fct(new_vec, X[mask])
-            new_vec -= sparse_param * occupation
+            occupation = sparse_fct(X[mask])
+            blah = sparse_param * occupation
+            new_vec -= blah
 
         if smoothness > 0:
             new_vec += smoothness * np.dot(self.S, X[oldind])

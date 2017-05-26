@@ -102,6 +102,8 @@ class nmf_cuda(object):
         self.psi = 1E-12  # numerical stabilization
 
         Y = np.asfortranarray(Y).astype(np.float32)
+
+
         A, X = self.init_factors(Y)
         # create neighborhood matrix
         if self.smooth_param:
