@@ -23,7 +23,6 @@ unsigned nextpow2(unsigned x);
 
 int main(int argc, char *argv[]){
 
-
     //factor X into W*H
     matrix W,H,X;
 
@@ -31,9 +30,9 @@ int main(int argc, char *argv[]){
     // X - matrix to factorize
     // W - initial W matrix
     // H - initial H matrix
-    read_matrix(&W,"../W.bin");
-    read_matrix(&X,"../X.bin");
-    read_matrix(&H,"../H.bin");
+    read_matrix(&W,"./regnmf/cuda/pythonWin.bin");
+    read_matrix(&X,"./regnmf/cuda/pythonXin.bin");
+    read_matrix(&H,"./regnmf/cuda/pythonHin.bin");
 
     //make sure no zero elements
     matrix_eps(X);

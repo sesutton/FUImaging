@@ -2,6 +2,8 @@ import sys
 import os
 
 
+#!!!! THIS DOESN'T CURRENTLY WORK, USE THE NOTEBOOK IN CudaPerformance
+
 #the datamaker and ImageAnalysisComponents utilities reside two levels above this notebook.
 utility_path = os.path.realpath(os.path.join(os.path.pardir, os.path.pardir))
 sys.path.append(utility_path)
@@ -36,9 +38,24 @@ anal_param = {'sparse_param': 0.5,
 
 input_data = ia.TimeSeries(data.observed, shape=param['shape'])
 
+import cProfile, pstats, StringIO
+
+nmf_cuda = ia.NNMF_cuda(maxcount=50, num_components=anal_param['factors'], **anal_param)
+
+pr = cProfile.Profile()
+pr.enable()
+nmf_cuda_out = nmf_cuda(input_data)
+pr.disable()
+s = StringIO.StringIO()
+sortby = 'cumulative'
+ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+ps.print_stats()
+print s.getvalue()
+
+
 nmf = ia.NNMF(maxcount=50, num_components=anal_param['factors'], **anal_param)
 
-import cProfile, pstats, StringIO
+
 pr = cProfile.Profile()
 pr.enable()
 
@@ -51,19 +68,6 @@ ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
 ps.print_stats()
 print s.getvalue()
 
-
-nmf_cuda = ia.NNMF_cuda(maxcount=50, num_components=anal_param['factors'], **anal_param)
-
-
-pr = cProfile.Profile()
-pr.enable()
-nmf_cuda_out = nmf_cuda(input_data)
-pr.disable()
-s = StringIO.StringIO()
-sortby = 'cumulative'
-ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-ps.print_stats()
-print s.getvalue()
 
 
 

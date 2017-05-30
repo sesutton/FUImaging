@@ -1,4 +1,3 @@
-
 # Fill in the name of the output binary here
 target    := nmf
 
@@ -13,7 +12,7 @@ extradeps :=
 # $ make opt="" dbg="-g" warn="-Wno-deptrcated-declarations -Wall -Werror"
 
 #-m32 keeps code 32bit (required in snow leopard for now)
-opt  ?= -O3 --compiler-options '-fPIC' #-m32
+opt  ?= -O3 --compiler-options '-fPIC -g -std=c++98'  #-m32
 dbg  ?= 
 warn ?= -Wall -Werror
 
@@ -22,7 +21,7 @@ warn ?= -Wall -Werror
 # berkeley millennium/rad clusters. It may be different on your machine.
 
 #cudaroot  := /usr/mill/pkg/cuda
-cudaroot  := /opt/cuda
+cudaroot   := /usr/local/cuda
 
 
 #----- C compilation options ------
@@ -44,7 +43,7 @@ cclibraries :=
 #----- CUDA compilation options -----
 
 nvcc        := $(cudaroot)/bin/nvcc
-cuflags     += $(opt) $(dbg) --host-compilation=C
+cuflags     += $(opt) $(dbg)
 culib_paths := -L$(cudaroot)/lib64
 cuinc_paths := -I$(cudaroot)/include
 culibraries := -lcublas
@@ -94,4 +93,3 @@ bench: bench.o matrix.o
 
 clean:
 	rm -f *.o $(target) bench makefile.*dep *.linkinfo test
-
