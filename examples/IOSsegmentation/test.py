@@ -38,8 +38,10 @@ anal_param = {'sparse_param': 0.5,
 
 input_data = ia.TimeSeries(data.observed, shape=param['shape'])
 
+
 import cProfile, pstats, StringIO
 
+'''
 nmf_cuda = ia.NNMF_cuda(maxcount=50, num_components=anal_param['factors'], **anal_param)
 
 pr = cProfile.Profile()
@@ -51,22 +53,25 @@ sortby = 'cumulative'
 ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
 ps.print_stats()
 print s.getvalue()
-
+'''
 
 nmf = ia.NNMF(maxcount=50, num_components=anal_param['factors'], **anal_param)
 
-
+'''
 pr = cProfile.Profile()
 pr.enable()
+'''
 
 nmf_out = nmf(input_data)
-
+'''
 pr.disable()
 s = StringIO.StringIO()
 sortby = 'cumulative'
 ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
 ps.print_stats()
 print s.getvalue()
+'''
+
 
 
 

@@ -114,6 +114,28 @@ void create_matrix(matrix* A, int rows, int cols, float value){
     A->mat_d = NULL;
 }
 
+void create_uniform_rand_matrix(matrix* A, int rows, int cols){
+	 //create matrix with all elements picked from a uniform real distribution
+	 //matrix dimensions are in dim (rows,cols)
+	 //set A->mat_d to NULL
+
+	 A->dim[0] = rows;
+	 A->dim[1] = cols;
+	 const int N = A->dim[0]*A->dim[1];
+
+	 A->mat = (float*)malloc(sizeof(float)*N);
+
+	 srand((unsigned)time(NULL));
+
+	 for(int i = 0; i<N; i++)
+	 A->mat[i] = (float)rand();  //!!May have to double check to see if this is uniform!!
+
+	 if(A->mat_d != NULL)
+	 cudaFree(A->mat_d);
+
+	 A->mat_d = NULL;
+}
+
 void create_matrix_on_device(matrix* A, int rows, int cols, float value){
     //create matrix on device  with all elements equal to 'value'
     //matrix dimensions are in dim[] {rows,cols}
@@ -1685,6 +1707,119 @@ void grid2D(dim3* dimGrid)
 
 }
 
+
+int most_interesting_column(matrix a)
+{
+	int cols = a.dim[1];
+	float *column_maxs;
+	column_maxs = (float *)malloc(sizeof(float)*cols);
+	if(column_maxs != NULL){
+		max_columns(column_maxs, a);
+	}
+
+
+	float max_val = 0;
+	int max_index;
+
+	for(int i= 0; i < cols; i++)
+	{
+		if(*column_maxs > max_val){
+			max_val = *column_maxs;
+			max_index = i;
+		}
+		column_maxs ++;
+	}
+
+	return max_index;
+}
+
+void max_columns(float *column_maxs_ptr, matrix a){
+	int row = a.dim[0];
+	int col = a.dim[1];
+
+
+	for(int i = 0; i < row; i++){
+		for(int j = 0; j < col; j++){
+			int index = (row * i) + j;
+			float value = a.mat[index];
+			if(column_maxs_ptr[i] <  value)
+				column_maxs_ptr[i] = value;
+		}
+	}
+}
+
+void matrix_column(matrix a, float *column, int col_index){
+	int row = a.dim[0];
+	int start_index = row * col_index;
+	for(int i = 0; i < row; i++){
+		column[i] = a.mat[start_index + i];
+	}
+}
+
+float dot_product(float v[], float u[], int n)
+{
+	float result = 0.0;
+    for (int i = 0; i < n; i++)
+        result += v[i]*u[i];
+    return result;
+}
+
+void elementwise_div(float *vector, int n, float denominator){
+	 for (int i = 0; i < n; i++)
+		 vector[i] /= denominator;
+}
+
+void allocate_vector_on_device(float **d_A, int N){
+	cudaError_t err;
+	err = cudaMalloc((void**)&d_A, N*sizeof(float));
+	if(err != cudaSuccess){
+		fprintf(stderr,"allocate_matrix_on_device: cudaMalloc: FAIL\n");
+		exit(1);
+	}
+}
+
+void copy_vector_to_device(float *A, int N, float **d_A){
+	cudaError_t err;
+	err = cudaMalloc((void**)&d_A, sizeof(float)*N);
+	if(err != cudaSuccess){
+		fprintf(stderr,"allocate_matrix_on_device: cudaMalloc: FAIL\n");
+		exit(1);
+	}
+
+    // copy unpadded matrix on host to padded matrix on device
+
+    //err = cudaMemcpy(d_A, A, sizeof(float)*N, cudaMemcpyHostToDevice);
+	err = cudaMemcpy(d_A,A,sizeof(float)*N,cudaMemcpyHostToDevice);   //copy x to device d_x
+
+
+    if (err != cudaSuccess){
+	fprintf(stderr,"copy_to_padded: error in cublasSetVector [%i],%i\n",err,cudaErrorInvalidValue);
+	exit(1);
+    }
+    //cudaMemcpy ( void* dst, const void* src, size_t count, cudaMemcpyKind kind )
+
+}
+
+void matrix_vector_multiply_Atb(matrix a, float *b, float *c){
+	float alf = 1.0;
+	float beta = 0.0;
+	int row = 300;
+	int col = 2500;
+    cublasSgemv('T', col, row, alf, a.mat_d, col, b, 1, beta, c, 1);
+    if(cublasGetError() != CUBLAS_STATUS_SUCCESS){
+	fprintf(stderr,"matrix_multiply_d: NOT SUCCESS\n");
+	exit(1);
+    }
+    //cublasSgemv(cublasHandle_t handle, cublasOperation_t trans,
+    //int m, int n,
+    //const float           *alpha,
+    //const float           *A, int lda,
+    //const float           *x, int incx,
+    //const float           *beta,
+    //float           *y, int incy)
+
+
+}
     
 
     

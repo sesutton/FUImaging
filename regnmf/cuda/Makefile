@@ -26,11 +26,11 @@ cudaroot   := /usr/local/cuda
 
 #----- C compilation options ------
 gcc        := /usr/bin/gcc
-cflags     += $(opt) $(dbg) $(warn)
+cflags     += $(opt) $(dbg) $(warn) 
 clib_paths :=
 
 cinc_paths := -I $(cudaroot)/include
-clibraries := -lcuda -lcudart -lblas -lstdc++
+clibraries := -lcuda -lcudart -lblas -lstdc++ -lm
 
 
 #----- C++ compilation options ------
@@ -46,7 +46,7 @@ nvcc        := $(cudaroot)/bin/nvcc
 cuflags     += $(opt) $(dbg)
 culib_paths := -L$(cudaroot)/lib64
 cuinc_paths := -I$(cudaroot)/include
-culibraries := -lcublas
+culibraries := -lcublas -lm
 
 
 lib_paths   := $(culib_paths) $(cclib_paths) $(clib_paths)

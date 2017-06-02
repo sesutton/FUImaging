@@ -1,8 +1,11 @@
 #include<stdio.h>
+#include <math.h>
 #include<stdlib.h>
 #include"matrix.h"
 #include<time.h>
 #include<sys/time.h>
+
+
 
 // status printed and convergence check every ITER_CHECK iterations
 #define ITER_CHECK 25
@@ -20,8 +23,12 @@ void update_div(matrix W, matrix H, matrix X, const float thresh, const int max_
 double get_time();
 unsigned nextpow2(unsigned x);
 
+void init_factors(matrix *W0, matrix *H0, matrix X0, int m, int n, int k, bool init_convex);
+void fit(matrix W0, matrix H0, matrix X0, int m, int n, int k, const float thresh, const int max_iter, double *t,int verbose);
+
 
 int main(int argc, char *argv[]){
+
 
     //factor X into W*H
     matrix W,H,X;
@@ -30,8 +37,14 @@ int main(int argc, char *argv[]){
     // X - matrix to factorize
     // W - initial W matrix
     // H - initial H matrix
-    read_matrix(&W,"./regnmf/cuda/pythonWin.bin");
     read_matrix(&X,"./regnmf/cuda/pythonXin.bin");
+    int k = 80;
+    int m = 2500;
+    int n = 300;
+    //init_factors(&W, &H, X, m, n, k, true);
+
+
+    read_matrix(&W,"./regnmf/cuda/pythonWin.bin");
     read_matrix(&H,"./regnmf/cuda/pythonHin.bin");
 
     //make sure no zero elements
@@ -88,18 +101,29 @@ int nmf(float *WP, float *HP, float *XP, int m, int n, int k){
 }
 }
 
+extern "C" {
+int regHALS(float *WP, float *HP, float *XP, int m, int n, int k){
 
-double get_time(){
-    //output time in microseconds
+    //factor X into W*H
+    matrix W,H,X;
 
-    //the following line is required for function-wise timing to work,
-    //but it slows down overall execution time.
-    //comment out for faster execution
-    cudaThreadSynchronize(); 
+    // read in matrix data:
+    // X - matrix to factorize
+    read_matrix_from_float(&X, m, n, XP);
+    init_factors(&W, &H, X, m, n, k, true);
 
-    struct timeval t;
-    gettimeofday(&t,NULL);
-    return (double)(t.tv_sec+t.tv_usec/1E6);
+
+    //make sure no zero elements
+    matrix_eps(X);
+    matrix_eps(H);
+    matrix_eps(W);
+
+
+    // iterative nmf minimization
+    fit(W,H,X, m, n, k, CONVERGE_THRESH,MAX_ITER,NULL,0);
+
+    return 0;
+}
 }
 
 int start_time(double* t, int i)
@@ -109,7 +133,7 @@ int start_time(double* t, int i)
         t[i] -= get_time();
         return 1;
     }
-    else 
+    else
         return 0;
 }
 
@@ -120,10 +144,9 @@ int stop_time(double* t, int i)
         t[i] += get_time();
         return 1;
     }
-    else 
+    else
         return 0;
 }
-
 
 
 void update_div(matrix W0, matrix H0, matrix X0, const float thresh, const int max_iter, double *t,int verbose){
@@ -363,7 +386,6 @@ void update_div(matrix W0, matrix H0, matrix X0, const float thresh, const int m
             //t[3] += get_time();
             stop_time(t,3);
 
-
             //sum cols of W into row vector
             //t[6] -= get_time();
             start_time(t,6);
@@ -552,6 +574,93 @@ void update_div(matrix W0, matrix H0, matrix X0, const float thresh, const int m
     cublasShutdown();
 
 }
+
+void convex_cone(matrix *W0, matrix *H0, matrix data, int latents){
+	int row = data.dim[0];
+	int col = data.dim[1];
+
+	for(int i = 0; i < latents; i++){
+		int best_col = most_interesting_column(data);
+		float timecourse[col];
+		matrix_column(data, timecourse, best_col);
+		float norm = dot_product(timecourse, timecourse, sizeof(timecourse)/sizeof(timecourse[0]));
+		elementwise_div(timecourse, sizeof(timecourse)/sizeof(timecourse[0]), sqrtf(norm));
+
+
+		int size = row*col;
+
+		//copy_matrix_to_device(&data);
+
+		cudaError_t cudastat;
+		float* d_timecourse;  //device vector
+		float* d_base;  //device result
+
+		copy_matrix_to_device(&data);
+
+
+		cudastat=cudaMalloc((void**)&d_timecourse,col*sizeof(float));
+		cudastat=cudaMalloc((void**)&d_base,row*sizeof(float));
+
+		cudaMemcpy(d_timecourse,timecourse,sizeof(float)*col,cudaMemcpyHostToDevice);   //copy x to device d_x
+		matrix_vector_multiply_Atb(data, d_timecourse, d_base);
+
+		float* base;
+		cudaMemcpy(base,d_base,sizeof(float)*row,cudaMemcpyDeviceToHost); // copy device result to host
+		cudaFree(d_timecourse);
+		cudaFree(d_base);
+
+
+
+
+		///copy_matrix_to_device(&data);
+		///allocate_vector_on_device(&d_base, row);
+		///copy_vector_to_device(timecourse, col, &d_timecourse);
+
+		///matrix_vector_multiply_Atb(data, d_timecourse, d_base);
+
+		///float base[row];
+		///cudaMemcpy(base,d_base,sizeof(float)*row,cudaMemcpyDeviceToHost); // copy device result to host
+		///cudaFree(d_timecourse);
+		///cudaFree(d_base);
+	}
+}
+
+void init_factors(matrix *W0, matrix *H0, matrix X0, int m, int n, int k, bool init_convex){
+	if (init_convex){
+		printf("X0 before convex cone = %.6f \n", X0.mat[0]);
+		convex_cone(W0, H0, X0, k);
+		printf("X0 after convex cone = %.6f \n", X0.mat[0]);
+	}
+	else{
+		create_uniform_rand_matrix(W0, m, k);
+		create_matrix(H0, k, n, 0);
+	}
+}
+
+
+
+void fit(matrix W0, matrix H0, matrix X0, int m, int n, int k, const float thresh, const int max_iter, double *t,int verbose){
+	cublasInit();
+
+	init_factors(&W0, &H0, X0, m, n, k, true);
+
+	cublasShutdown();
+}
+
+
+double get_time(){
+    //output time in microseconds
+
+    //the following line is required for function-wise timing to work,
+    //but it slows down overall execution time.
+    //comment out for faster execution
+    cudaThreadSynchronize();
+
+    struct timeval t;
+    gettimeofday(&t,NULL);
+    return (double)(t.tv_sec+t.tv_usec/1E6);
+}
+
 
 unsigned nextpow2(unsigned x) 
 {
