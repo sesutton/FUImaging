@@ -21,3 +21,5 @@ You might perform regularized NMF at three different UI levels:
 
 
 [1] Soelter J, Schumacher J, Spors H, Schmuker M: Automatic segmentation of odor maps in the mouse olfactory bulb using regularized non-negative matrix factorization, NeuroImage, Volume 98, September 2014, Pages 279-288, ISSN 1053-8119, http://dx.doi.org/10.1016/j.neuroimage.2014.04.041.
+
+In order to run the CudaPerformance notebook you need to go the the  regnmf/cuda/ and run 'make && ./command'
