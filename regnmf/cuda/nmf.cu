@@ -41,7 +41,7 @@ int main(int argc, char *argv[]){
     int k = 80;
     int m = 2500;
     int n = 300;
-    //init_factors(&W, &H, X, m, n, k, true);
+    init_factors(&W, &H, X, m, n, k, true);
 
 
     read_matrix(&W,"./regnmf/cuda/pythonWin.bin");
@@ -84,9 +84,9 @@ int nmf(float *WP, float *HP, float *XP, int m, int n, int k){
     // X - matrix to factorize
     // W - initial W matrix
     // H - initial H matrix
-    read_matrix_from_float(&W, m, k, WP);
-    read_matrix_from_float(&H, k, n, HP);
-    read_matrix_from_float(&X, m, n, XP);
+    read_matrix_from_array(&W, m, k, WP);
+    read_matrix_from_array(&H, k, n, HP);
+    read_matrix_from_array(&X, m, n, XP);
 
     //make sure no zero elements
     matrix_eps(X);
@@ -109,7 +109,7 @@ int regHALS(float *WP, float *HP, float *XP, int m, int n, int k){
 
     // read in matrix data:
     // X - matrix to factorize
-    read_matrix_from_float(&X, m, n, XP);
+    read_matrix_from_array(&X, m, n, XP);
     init_factors(&W, &H, X, m, n, k, true);
 
 
@@ -581,36 +581,26 @@ void convex_cone(matrix *W0, matrix *H0, matrix data, int latents){
 
 	for(int i = 0; i < latents; i++){
 		int best_col = most_interesting_column(data);
-		float timecourse[col];
-		matrix_column(data, timecourse, best_col);
-		float norm = dot_product(timecourse, timecourse, sizeof(timecourse)/sizeof(timecourse[0]));
-		elementwise_div(timecourse, sizeof(timecourse)/sizeof(timecourse[0]), sqrtf(norm));
 
+		vector timecourse;
+		create_vector(&timecourse, col, 0);
+		matrix_column(data, &timecourse, best_col);
+		float norm = vector_dot_product(timecourse, timecourse);
+		element_div(&timecourse, sqrtf(norm));
 
-		int size = row*col;
-
-		//copy_matrix_to_device(&data);
-
-		cudaError_t cudastat;
-		float* d_timecourse;  //device vector
-		float* d_base;  //device result
+		vector base;
 
 		copy_matrix_to_device(&data);
+		copy_vector_to_device(&timecourse);
+		create_vector_on_both(&base, row, 0);
 
+		//cudastat=cudaMalloc((void**)&d_timecourse,col*sizeof(float));
+		//cudastat=cudaMalloc((void**)&d_base,row*sizeof(float));
 
-		cudastat=cudaMalloc((void**)&d_timecourse,col*sizeof(float));
-		cudastat=cudaMalloc((void**)&d_base,row*sizeof(float));
+		//cudaMemcpy(d_timecourse,timecourse,sizeof(float)*col,cudaMemcpyHostToDevice);   //copy x to device d_x
+		matrix_vector_multiply_Atb(data, timecourse, &base);
 
-		cudaMemcpy(d_timecourse,timecourse,sizeof(float)*col,cudaMemcpyHostToDevice);   //copy x to device d_x
-		matrix_vector_multiply_Atb(data, d_timecourse, d_base);
-
-		float* base;
-		cudaMemcpy(base,d_base,sizeof(float)*row,cudaMemcpyDeviceToHost); // copy device result to host
-		cudaFree(d_timecourse);
-		cudaFree(d_base);
-
-
-
+		copy_vector_from_device(&base);
 
 		///copy_matrix_to_device(&data);
 		///allocate_vector_on_device(&d_base, row);
