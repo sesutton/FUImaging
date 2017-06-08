@@ -191,6 +191,15 @@ void create_matrix_on_both(matrix* A, int rows, int cols, float value) {
 
 }
 
+void replace_matrix(matrix* a, matrix b){
+	a->dim[0] = b.dim[0];
+	a->dim[1] = b.dim[1];
+
+	a->mat = b.mat;
+	a->mat_d = b.mat;
+
+}
+
 void copy_matrix_to_device(matrix* A) {
 
 	const int N = A->dim[0] * A->dim[1];
@@ -2421,7 +2430,7 @@ void matrix_column(matrix a, vector* b, int col_index) {
 	}
 }
 
-void vector_dot_product(vector a, vector b, float *out) {
+void vector_dot_product(vector a, vector b, float* out) {
 	int N = a.len;
 
 	if(a.len != b.len){
@@ -2441,12 +2450,12 @@ void vector_dot_product(vector a, vector b, float *out) {
 	//	                           float           *result)
 }
 
-void vector_outer_product(vector a, vector b, matrix out){
+void vector_outer_product(vector a, vector b, matrix* out){
 	float alf = 1.0;
 	int row = a.len;
 	int col = b.len;
 
-	cublasSger(row, col, alf, a.vec_d , 1, b.vec_d, 1, out.mat_d, row);
+	cublasSger(row, col, alf, a.vec_d , 1, b.vec_d, 1, out->mat_d, row);
 	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
 			fprintf(stderr, "vector_outer_product: NOT SUCCESS\n");
 			exit(1);
@@ -2459,9 +2468,9 @@ void vector_outer_product(vector a, vector b, matrix out){
 	//                           float           *A, int lda)
 }
 
-void element_div(vector a, float denom) {
-	for (int i = 0; i < a.len; i++)
-		a.vec[i] /= denom;
+void element_div(vector* a, float denom) {
+	for (int i = 0; i < a->len; i++)
+		a->vec[i] /= denom;
 }
 
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c) {
@@ -2484,20 +2493,22 @@ void matrix_vector_multiply_Atb(matrix a, vector b, vector *c) {
 }
 
 
-void matrix_transpose(matrix a){
+void matrix_transpose(matrix* a){
 	matrix temp;
-	create_matrix_on_both(&temp, a.dim[1], a.dim[0], 0);
+	create_matrix_on_both(&temp, a->dim[1], a->dim[0], 0);
 
 	float const alpha(1.0);
 	float const beta(0.0);
-	int row = a.dim[0];
-	int col = a.dim[1];
+	int row = a->dim[0];
+	int col = a->dim[1];
 	cublasHandle_t handle;
 
-	cublasSgeam(handle, CUBLAS_OP_T, CUBLAS_OP_N, row, col, &alpha, a.mat_d, col, &beta, a.mat_d, row, temp.mat_d, row );
-
-	a = temp;
-}
+	cublasSgeam(handle, CUBLAS_OP_T, CUBLAS_OP_N, row, col, &alpha, a->mat_d, col, &beta, a->mat_d, row, temp.mat_d, row );
+	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
+			fprintf(stderr, "matrix_multiply_d: NOT SUCCESS\n");
+			exit(1);
+	}
+	replace_matrix(a, temp);}
 
 
 

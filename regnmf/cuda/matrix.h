@@ -28,6 +28,7 @@ void create_matrix(matrix* A, int rows, int cols, float value);
 void create_uniform_rand_matrix(matrix* A, int rows, int cols);
 void create_matrix_on_device(matrix* A, int rows, int cols, float value);
 void create_matrix_on_both(matrix* A, int rows, int cols, float value);
+void replace_matrix(matrix* a, matrix b);
 void copy_matrix_to_device(matrix* A);
 void copy_matrix_on_device(matrix A, matrix B);
 void copy_matrix_from_device(matrix* A);
@@ -84,9 +85,10 @@ int most_interesting_column(matrix a);
 void max_columns(vector* a, matrix b);
 void matrix_column(matrix a, vector* b, int col_index);
 
-void vector_dot_product(vector a, vector b, float *out);
-void vector_outer_product(vector a, vector b, matrix out);
+void vector_dot_product(vector a, vector b, float* out);
+void vector_outer_product(vector a, vector b, matrix* out);
 
 
-void element_div(vector a, float denom);
+void element_div(vector* a, float denom);
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c);
+void matrix_transpose(matrix* a);

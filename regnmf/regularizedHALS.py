@@ -151,6 +151,8 @@ class regHALS(object):
                     temp[i, j - 1] = 1
                 if j < self.shape[1] - 1:
                     temp[i, j + 1] = 1
+                t1 = np.sum(temp)
+                t2 = 1.*temp.flatten()
                 nn_matrix.append(1.*temp.flatten() / np.sum(temp))
         return np.array(nn_matrix)
 
