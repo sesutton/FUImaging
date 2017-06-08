@@ -39,6 +39,9 @@ void allocate_matrix_on_device(matrix* A);
 void free_matrix_on_device(matrix* A);
 void destroy_matrix(matrix* A);
 
+void set_matrix_row(matrix* A, vector b, int N);
+void set_matrix_column(matrix* A, vector b, int N);
+
 //creating, allocating, moving vectors
 void read_vector_from_array(vector* A, int len, float* value);
 void create_vector(vector* A, int len, float value);
@@ -66,8 +69,10 @@ void matrix_multiply_ABt_d( matrix a, matrix b, matrix c );
 //element operations
 void element_multiply_d( matrix a, matrix b, matrix c, int block_size);
 void element_divide_d( matrix a, matrix b, matrix c, int block_size);
+void element_subtract_d(matrix a, matrix b, matrix c, int block_size);
 void matrix_eps_d( matrix a, int block_size);
 void matrix_eps(matrix a);
+void matrix_transpose(matrix a);
 
 //row/col-wise
 void row_divide_d( matrix a, matrix b, matrix c);
@@ -78,6 +83,10 @@ void sum_rows_d(action_t action, matrix a, matrix c, int* params);
 int most_interesting_column(matrix a);
 void max_columns(vector* a, matrix b);
 void matrix_column(matrix a, vector* b, int col_index);
-float vector_dot_product(vector a, vector b);
-void element_div(vector* a, float denom);
+
+void vector_dot_product(vector a, vector b, float *out);
+void vector_outer_product(vector a, vector b, matrix out);
+
+
+void element_div(vector a, float denom);
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c);

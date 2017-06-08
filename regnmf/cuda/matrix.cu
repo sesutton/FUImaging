@@ -10,6 +10,7 @@
 __global__ void vecEps(float* a, const int N);
 __global__ void vecDiv(float* a, float* b, float* c, const int N);
 __global__ void vecMult(float* a, float* b, float* c, const int N);
+__global__ void vecSub(float* a, float* b, float* c, const int N);
 __global__ void colDiv(float* a, float* b, float* c, int M, int N);
 __global__ void colMul(float* a, float* b, float* c, int M, int N);
 __global__ void rowDiv(float* a, float* b, float* c, int M, int N);
@@ -29,6 +30,7 @@ __global__ void reduce1DNan(float *g_idata1, float *g_odata, int N);
 template<unsigned int blockSize>
 __global__ void reduce1DEql(float *g_idata1, float *g_odata, int N);
 void grid2D(dim3* dimGrid);
+
 
 //creating, allocating, moving matrices
 
@@ -475,6 +477,16 @@ void destroy_matrix(matrix* A) {
 
 	A->dim[0] = 0;
 	A->dim[1] = 0;
+}
+
+void set_matrix_column(matrix* A, vector b, int N){
+	int col = A->dim[1];
+
+	int start = col * N;
+	int len = b.len;
+
+	for (int i = 0; i < len; i++)
+		A->mat[start + i] = b.vec[i];
 }
 
 //creating, allocating, moving vectors
@@ -1436,7 +1448,7 @@ void matrix_multiply_ABt_d(matrix a, matrix b, matrix c) {
 //element operations
 
 void element_multiply_d(matrix a, matrix b, matrix c, int block_size) {
-	// c = a./b
+	// c = a.*b
 
 	if (a.dim[0] != b.dim[0] || a.dim[0] != c.dim[0] || a.dim[1] != b.dim[1]
 			|| a.dim[1] != c.dim[1]) {
@@ -1472,6 +1484,25 @@ void element_divide_d(matrix a, matrix b, matrix c, int block_size) {
 	vecDiv<<<dimGrid, dimBlock>>>(a.mat_d, b.mat_d, c.mat_d, N);
 }
 
+void element_subtract_d(matrix a, matrix b, matrix c, int block_size){
+	// c = a.-b
+
+	if (a.dim[0] != b.dim[0] || a.dim[0] != c.dim[0] || a.dim[1] != b.dim[1]
+			|| a.dim[1] != c.dim[1]) {
+		fprintf(stderr, "element_divide_d: dimensions do not agree\n");
+		exit(1);
+	}
+
+	const int N = a.dim[0] * a.dim[1];
+	dim3 dimBlock(block_size);
+	dim3 dimGrid((N / dimBlock.x) + (!(N % dimBlock.x) ? 0 : 1));
+	if (dimGrid.x > MAX_BLOCKS)
+		grid2D(&dimGrid);
+
+	vecSub<<<dimGrid, dimBlock>>>(a.mat_d, b.mat_d, c.mat_d, N);
+
+}
+
 void matrix_eps_d(matrix a, int block_size) {
 
 	const int N = a.dim[0] * a.dim[1];
@@ -1493,6 +1524,7 @@ void matrix_eps(matrix a) {
 			a.mat[i] = EPS;
 	}
 }
+
 
 //row/col-wise
 
@@ -1875,6 +1907,14 @@ __global__ void vecMult(float* a, float* b, float* c, const int N) {
 			+ threadIdx.x;
 	if (i < N)
 		c[i] = a[i] * b[i];
+}
+
+__global__ void vecSub(float* a, float* b, float* c, const int N) {
+	//const int i = blockIdx.x*blockDim.x + threadIdx.x;
+	const int i = gridDim.x * blockDim.x * blockIdx.y + blockIdx.x * blockDim.x
+			+ threadIdx.x;
+	if (i < N)
+		c[i] = a[i] - b[i];
 }
 
 __global__ void vecEps(float* a, const int N) {
@@ -2381,21 +2421,52 @@ void matrix_column(matrix a, vector* b, int col_index) {
 	}
 }
 
-float vector_dot_product(vector a, vector b) {
-	float result = 0.0;
-	for (int i = 0; i < a.len; i++)
-		result += a.vec[i] * b.vec[i];
-	return result;
+void vector_dot_product(vector a, vector b, float *out) {
+	int N = a.len;
+
+	if(a.len != b.len){
+		fprintf(stderr,"vector_dot_product: length of vectors don't match");
+		exit(1);
+	}
+
+	*out = cublasSdot(N, a.vec_d, 1, b.vec_d, 1);
+	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
+				fprintf(stderr, "vector_outer_product: NOT SUCCESS\n");
+				exit(1);
+	}
+
+	//cublasStatus_t cublasSdot (cublasHandle_t handle, int n,
+	//	                           const float           *x, int incx,
+	//	                           const float           *y, int incy,
+	//	                           float           *result)
 }
 
-void element_div(vector* a, float denom) {
-	for (int i = 0; i < a->len; i++)
-		a->vec[i] /= denom;
+void vector_outer_product(vector a, vector b, matrix out){
+	float alf = 1.0;
+	int row = a.len;
+	int col = b.len;
+
+	cublasSger(row, col, alf, a.vec_d , 1, b.vec_d, 1, out.mat_d, row);
+	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
+			fprintf(stderr, "vector_outer_product: NOT SUCCESS\n");
+			exit(1);
+		}
+
+	//cublasStatus_t  cublasSger(cublasHandle_t handle, int m, int n,
+	//                           const float           *alpha,
+	//                           const float           *x, int incx,
+	//                           const float           *y, int incy,
+	//                           float           *A, int lda)
+}
+
+void element_div(vector a, float denom) {
+	for (int i = 0; i < a.len; i++)
+		a.vec[i] /= denom;
 }
 
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c) {
-	float alf = 1.0;
-	float beta = 0.0;
+	float const alf = 1.0;
+	float const beta = 0.0;
 	int row = a.dim[0];
 	int col = a.dim[1];
 	cublasSgemv('T', col, row, alf, a.mat_d, col, b.vec_d, 1, beta, c->vec_d, 1);
@@ -2404,12 +2475,30 @@ void matrix_vector_multiply_Atb(matrix a, vector b, vector *c) {
 		exit(1);
 	}
 	//cublasSgemv(cublasHandle_t handle, cublasOperation_t trans,
-	//int m, int n,
-	//const float           *alpha,
-	//const float           *A, int lda,
-	//const float           *x, int incx,
-	//const float           *beta,
+	//				int m, int n,
+	//				const float           *alpha,
+	//				const float           *A, int lda,
+	//				const float           *x, int incx,
+	//				const float           *beta,
 	//float           *y, int incy)
-
 }
+
+
+void matrix_transpose(matrix a){
+	matrix temp;
+	create_matrix_on_both(&temp, a.dim[1], a.dim[0], 0);
+
+	float const alpha(1.0);
+	float const beta(0.0);
+	int row = a.dim[0];
+	int col = a.dim[1];
+	cublasHandle_t handle;
+
+	cublasSgeam(handle, CUBLAS_OP_T, CUBLAS_OP_N, row, col, &alpha, a.mat_d, col, &beta, a.mat_d, row, temp.mat_d, row );
+
+	a = temp;
+}
+
+
+
 

@@ -24,7 +24,7 @@ double get_time();
 unsigned nextpow2(unsigned x);
 
 void init_factors(matrix *W0, matrix *H0, matrix X0, int m, int n, int k, bool init_convex);
-void fit(matrix W0, matrix H0, matrix X0, int m, int n, int k, const float thresh, const int max_iter, double *t,int verbose);
+void fit(matrix W0, matrix H0, matrix X0, const float thresh, const int max_iter, double *t,int verbose);
 
 
 int main(int argc, char *argv[]){
@@ -38,10 +38,8 @@ int main(int argc, char *argv[]){
     // W - initial W matrix
     // H - initial H matrix
     read_matrix(&X,"./regnmf/cuda/pythonXin.bin");
-    int k = 80;
-    int m = 2500;
-    int n = 300;
-    init_factors(&W, &H, X, m, n, k, true);
+
+    fit(W, H, X, CONVERGE_THRESH,MAX_ITER,NULL,0);
 
 
     read_matrix(&W,"./regnmf/cuda/pythonWin.bin");
@@ -110,7 +108,7 @@ int regHALS(float *WP, float *HP, float *XP, int m, int n, int k){
     // read in matrix data:
     // X - matrix to factorize
     read_matrix_from_array(&X, m, n, XP);
-    init_factors(&W, &H, X, m, n, k, true);
+    fit(W, H, X, CONVERGE_THRESH,MAX_ITER,NULL,0);
 
 
     //make sure no zero elements
@@ -120,7 +118,7 @@ int regHALS(float *WP, float *HP, float *XP, int m, int n, int k){
 
 
     // iterative nmf minimization
-    fit(W,H,X, m, n, k, CONVERGE_THRESH,MAX_ITER,NULL,0);
+    fit(W,H,X, CONVERGE_THRESH,MAX_ITER,NULL,0);
 
     return 0;
 }
@@ -575,50 +573,69 @@ void update_div(matrix W0, matrix H0, matrix X0, const float thresh, const int m
 
 }
 
-void convex_cone(matrix *W0, matrix *H0, matrix data, int latents){
+void convex_cone(matrix *W0, matrix *H0, matrix data, int latents, int* params, int BLOCK_SIZE){
 	int row = data.dim[0];
 	int col = data.dim[1];
+
+	create_matrix(W0, latents, row, 0);
+	create_matrix(H0, latents, col, 0);
 
 	for(int i = 0; i < latents; i++){
 		int best_col = most_interesting_column(data);
 
 		vector timecourse;
+
 		create_vector(&timecourse, col, 0);
 		matrix_column(data, &timecourse, best_col);
-		float norm = vector_dot_product(timecourse, timecourse);
-		element_div(&timecourse, sqrtf(norm));
+
+		float norm;
+
+		copy_vector_to_device(&timecourse);
+		vector_dot_product(timecourse, timecourse, &norm);
+		element_div(timecourse, sqrtf(norm));
 
 		vector base;
 
 		copy_matrix_to_device(&data);
-		copy_vector_to_device(&timecourse);
+
 		create_vector_on_both(&base, row, 0);
 
-		//cudastat=cudaMalloc((void**)&d_timecourse,col*sizeof(float));
-		//cudastat=cudaMalloc((void**)&d_base,row*sizeof(float));
-
-		//cudaMemcpy(d_timecourse,timecourse,sizeof(float)*col,cudaMemcpyHostToDevice);   //copy x to device d_x
 		matrix_vector_multiply_Atb(data, timecourse, &base);
+		zero_check_d(compute, data, params);
 
+		matrix outer;
+		create_matrix_on_both(&outer, row, col, 0);
+
+		vector_outer_product(timecourse, base, outer);
+
+		matrix newdata;
+		create_matrix_on_both(&outer, row, col, 0);
+
+		element_subtract_d(data, outer, newdata,  BLOCK_SIZE);
+
+		data = newdata;
+
+		copy_matrix_from_device(&data);
 		copy_vector_from_device(&base);
+		copy_vector_from_device(&timecourse);
 
-		///copy_matrix_to_device(&data);
-		///allocate_vector_on_device(&d_base, row);
-		///copy_vector_to_device(timecourse, col, &d_timecourse);
+		set_matrix_column(W0, base, i); //check if float* is storing row or column order
+		set_matrix_column(H0, timecourse, i);
 
-		///matrix_vector_multiply_Atb(data, d_timecourse, d_base);
+		free_matrix_on_device(&data);
+		destroy_matrix(&newdata);
+		destroy_vector(&base);
+		destroy_vector(&timecourse);
 
-		///float base[row];
-		///cudaMemcpy(base,d_base,sizeof(float)*row,cudaMemcpyDeviceToHost); // copy device result to host
-		///cudaFree(d_timecourse);
-		///cudaFree(d_base);
 	}
+
+	matrix_transpose(*W0);
 }
 
-void init_factors(matrix *W0, matrix *H0, matrix X0, int m, int n, int k, bool init_convex){
+void init_factors(matrix *W0, matrix *H0, matrix X0, int m, int n, int k, bool init_convex, int* params, int BLOCK_SIZE){
 	if (init_convex){
 		printf("X0 before convex cone = %.6f \n", X0.mat[0]);
-		convex_cone(W0, H0, X0, k);
+		convex_cone(W0, H0, X0, k, params, BLOCK_SIZE);
 		printf("X0 after convex cone = %.6f \n", X0.mat[0]);
 	}
 	else{
@@ -629,10 +646,87 @@ void init_factors(matrix *W0, matrix *H0, matrix X0, int m, int n, int k, bool i
 
 
 
-void fit(matrix W0, matrix H0, matrix X0, int m, int n, int k, const float thresh, const int max_iter, double *t,int verbose){
+void fit(matrix W0, matrix H0, matrix X0, const float thresh, const int max_iter, double *t,int verbose){
 	cublasInit();
 
-	init_factors(&W0, &H0, X0, m, n, k, true);
+	const int M = X0.dim[0];
+	const int K = 80;
+	const int N = X0.dim[1];
+
+	// pad matrix dimensions to multiples of:
+	const int PAD_MULT = 32;
+
+	int M_padded = M;
+	if (M%PAD_MULT != 0)
+		M_padded = M + (PAD_MULT - (M % PAD_MULT));
+
+	int K_padded = K;
+	if (K%PAD_MULT != 0)
+		K_padded = K + (PAD_MULT - (K % PAD_MULT));
+
+	int N_padded = N;
+	if (N%PAD_MULT != 0)
+		N_padded = N + (PAD_MULT - (N % PAD_MULT));
+
+	//unpadded test
+	//M_padded = M;
+	//N_padded = N;
+	//K_padded = K;
+
+	// find reduction parameters
+	int MN_params[4] = {1,1,1,1}; //M*N size reduction (whole matrix)
+	int N_params[4] = {1,1,1,1}; //N size reductions (rows)
+	int M_params[4] = {1,1,1,1}; //M size reductions (cols)
+
+	int rem;
+	rem = nextpow2(N_padded/128 + (!(N_padded%128)?0:1));
+	if (rem <= 128)
+	{
+		N_params[0] = 128;
+		N_params[1] = rem;
+	}
+	else if (rem <= 512)
+	{
+		N_params[0] = rem;
+		N_params[1] = 128;
+	}
+	else
+	{
+		fprintf(stderr,"reduction parameter error\n");
+		exit(1);
+	}
+
+
+	rem = nextpow2(M_padded/128 + (!(M_padded%128)?0:1));
+	if (rem <= 128)
+	{
+		M_params[0] = 128;
+		M_params[1] = rem;
+	}
+	else if (rem <= 512)
+	{
+		M_params[0] = rem;
+		M_params[1] = 128;
+	}
+	else
+	{
+		fprintf(stderr,"reduction parameter error\n");
+		exit(1);
+	}
+
+	MN_params[0] = M_params[0];
+	MN_params[1] = M_params[1];
+	MN_params[2] = N_params[0];
+	MN_params[3] = N_params[1];
+
+	//printf("reduction parameters: ");
+	//printf("%u,%u,%u,%u\n",MN_params[0],MN_params[1],MN_params[2],MN_params[3]);
+
+
+	// block size in vector arithmetic operations
+	const int BLOCK_SIZE = 1024;
+
+	init_factors(&W0, &H0, X0, M, N, K, true, MN_params, BLOCK_SIZE);
 
 	cublasShutdown();
 }
