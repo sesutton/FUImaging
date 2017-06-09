@@ -582,34 +582,40 @@ void init_factors(matrix* W0, matrix* H0, matrix X0, int m, int n, int k,
 	}
 }
 
-void create_nn_matrix(float *a, int c, int r) {
-	int len = c*r;
-	for (int i = 0; i < r; i++) {
-		for (int j = 0; j < c; j++) {
-			float temp[c][r];
+void create_nn_matrix(matrix* a, int lda, int tda) {
+	const int len = lda*tda;
+
+
+	for (int i = 0; i < lda; i++) {
+		for (int j = 0; j < tda; j++) {
+			matrix temp;
+			create_matrix(&temp, lda, tda, 0);
+
 			if (i > 0)
-				temp[i - 1][ j] = 1;
-			if (i < r - 1)
-				temp[i + 1][ j] = 1;
+				temp.mat[i - 1 + temp.dim[0] * j] = 1;
+			if (i < lda - 1)
+				temp.mat[i + 1 + temp.dim[0] * j] = 1;
 			if (j > 0)
-				temp[i][ j - 1] = 1;
-			if (j < c - 1)
-				temp[i][ j + 1] = 1;
+				temp.mat[i + temp.dim[0] * j - 1] = 1;
+			if (j < tda - 1)
+				temp.mat[i + temp.dim[0] * j + 1] = 1;
+
 
 
 		float sum = 0;
-		float flat[len];
+		vector flat;
+		create_vector(&flat, len, 0);
 		int k = 0;
-			for (int x = 0; x < r; x++)
-			for (int y = 0; y < c; y++) {
-				flat[k] = 1*temp[x][y];
-				sum += temp[x][y];
+			for (int x = 0; x < lda; x++){
+			for (int y = 0; y < tda; y++) {
+				flat.vec[k] = 1*temp.mat[x + temp.dim[0] * y];
+				sum += temp.mat[x + temp.dim[0] * y];
 				k++;
 			}
+			}
 
-		for (int x = 0; x < len; x++){
-			*((a + i * len) + x) = flat[x]/sum;
-		}
+		element_div(&flat, sum);
+		set_matrix_column(a, flat, i);
 		}
 	}
 }
@@ -685,10 +691,18 @@ void fit(matrix W0, matrix H0, matrix X0, const float thresh,
 	init_factors(&W0, &H0, X0, M, N, K, true, MN_params, BLOCK_SIZE);
 
 	//Redo this w/ Matrix and Vectors duh!
-	int SINIT = 2500;
+	const int SINIT = 2500;
 	int SHAPE = 50;
-	float S[SINIT][SINIT];
-	create_nn_matrix((float *)S, SHAPE, SHAPE);
+	matrix S;
+	create_matrix(&S, SINIT, SINIT, 0);
+
+	create_nn_matrix(&S, SHAPE, SHAPE);
+
+	int count = 0;
+	float obj_old = 1e99;
+	float = nrm_Y;
+	frobenius_norm(X0, nrm_Y);
+
 	cublasShutdown();
 }
 

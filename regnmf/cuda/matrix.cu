@@ -2508,8 +2508,34 @@ void matrix_transpose(matrix* a){
 			fprintf(stderr, "matrix_multiply_d: NOT SUCCESS\n");
 			exit(1);
 	}
-	replace_matrix(a, temp);}
+	replace_matrix(a, temp);
+}
 
+void trace(matrix a, vector* b){
+		for (int i = 0; i < a.dim[0]; i++){
+			 b->vec[i] =  a.mat[i + a.dim[0] * i];
+		}
+}
+
+void frobenius_norm(matrix a, float b){
+	//sqrt/trace(Y*YH)
+	int rows = a.dim[0];
+	matrix matmul;
+	create_matrix_on_both(&matmul,rows, rows, 0);
+	matrix_multiply_ABt_d(a, a, matmul);
+	vector traceVec;
+	create_vector(&traceVec, rows, 0);
+	copy_matrix_to_device(&a);
+	trace(matmul, &traceVec);
+	vector_sqrt(traceVec, b);
+}
+
+void vector_sqrt(vector a, float b){
+	b = 0;
+	for (int i = 0; i < a.len; i++){
+		b += sqrt(a.vec[i]);
+	}
+}
 
 
 

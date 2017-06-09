@@ -92,3 +92,8 @@ void vector_outer_product(vector a, vector b, matrix* out);
 void element_div(vector* a, float denom);
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c);
 void matrix_transpose(matrix* a);
+
+void trace(matrix a, vector* b);
+void frobenius_norm(matrix a, float b);
+void vector_sqrt(vector a, float b);
+
