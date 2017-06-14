@@ -230,7 +230,8 @@ void update_div(matrix W0, matrix H0, matrix X0, const float thresh,
 	// compute initial divergence and error
 	float diff, div, change, prev_diff, prev_div;
 
-	matrix_multiply_d(W0, H0, WH0);
+	matrix_multiply_d(W0, H0
+			, WH0);
 	diff = matrix_difference_norm_d(compute, X0, WH0, MN_params);
 
 	div = matrix_div_d(compute, X0, WH0, MN_params);
@@ -528,10 +529,10 @@ void convex_cone(matrix* W0, matrix* H0, matrix data, int latents, int* params,
 		create_vector(&timecourse, col, 0);
 		matrix_column(data, &timecourse, best_col);
 
-		float norm;
+		float norm = 0;
 
 		copy_vector_to_device(&timecourse);
-		vector_dot_product(timecourse, timecourse, &norm);
+		vector_dot_product(timecourse, timecourse, norm);
 		element_div(&timecourse, sqrtf(norm));
 
 		vector base;
@@ -569,7 +570,10 @@ void convex_cone(matrix* W0, matrix* H0, matrix data, int latents, int* params,
 
 	}
 
+	copy_matrix_to_device(H0);
 	matrix_transpose(W0);
+	copy_matrix_to_device(W0);
+
 }
 
 void init_factors(matrix* W0, matrix* H0, matrix X0, int m, int n, int k,
@@ -579,6 +583,8 @@ void init_factors(matrix* W0, matrix* H0, matrix X0, int m, int n, int k,
 	} else {
 		create_uniform_rand_matrix(W0, m, k);
 		create_matrix(H0, k, n, 0);
+		copy_matrix_to_device(W0);
+		copy_matrix_to_device(H0);
 	}
 }
 
@@ -616,8 +622,82 @@ void create_nn_matrix(matrix* a, int lda, int tda) {
 
 		element_div(&flat, sum);
 		set_matrix_column(a, flat, i);
+		//destroy_vector(&flat);
 		}
 	}
+}
+
+vector project_residuals(matrix res, int oldind, vector to_base, matrix X){
+ float sparse_param = 0.5;
+ float smooth_param = 2;
+
+ vector new_vec;
+ create_vector_on_both(&new_vec, res.dim[0], 0);
+ matrix_vector_multiply_Atb(res, to_base, &new_vec);
+
+ return new_vec;
+}
+
+void update(matrix X0, matrix W0, matrix H0, int BLOCK_SIZE){
+	matrix E, dot;
+	create_matrix_on_both(&E, W0.dim[0], H0.dim[1], 0);
+	create_matrix_on_both(&dot, W0.dim[0], H0.dim[1], 0);
+	matrix_multiply_d(W0, H0, dot);
+	element_subtract_d(X0, dot, E, BLOCK_SIZE);
+
+	matrix_transpose(&H0);
+
+
+	const float basenorm = 1;
+	const float psi = 1E-12;
+
+
+	for (int i = 0; i < W0.dim[1]; i++) {
+	vector aj, xj;
+	create_vector_on_both(&aj, W0.dim[0], 0);
+	create_vector_on_both(&xj, H0.dim[0], 0);
+
+	matrix_column(W0, &aj, i);
+	matrix_column(H0, &xj, i);
+
+	matrix ajxj, Rt;
+	create_matrix_on_both(&ajxj, X0.dim[0], X0.dim[1], 0);
+	create_matrix_on_both(&Rt, X0.dim[0], X0.dim[1], 0);
+	vector_outer_product(aj, xj, &ajxj);
+	element_addition_d(E, ajxj, Rt, BLOCK_SIZE);
+	matrix_transpose(&Rt);
+	xj = project_residuals(Rt, i, aj, H0);
+
+	element_div(&xj, basenorm + psi);
+
+	matrix_transpose(&Rt);
+	matrix_transpose(&W0);
+
+	aj = project_residuals(Rt, i, xj, W0);
+
+	matrix_transpose(&W0);
+	element_div(&aj, timenorm(aj) + psi);
+
+	vector_outer_product(aj, xj, &ajxj);
+
+	matrix newRt;
+	create_matrix_on_both(&newRt, X0.dim[0], X0.dim[1], 0);
+	element_subtract_d(Rt, ajxj, newRt, BLOCK_SIZE);
+
+	set_matrix_column(&W0, aj, i);
+	set_matrix_column(&H0, xj, i);
+
+	replace_matrix(&E, newRt);
+
+//	destroy_matrix(&ajxj);
+//	destroy_matrix(&Rt);
+//	destroy_matrix(&newRt);
+//	destroy_vector(&aj);
+//	destroy_vector(&xj);
+	}
+
+	matrix_transpose(&H0);
+
 }
 
 void fit(matrix W0, matrix H0, matrix X0, const float thresh,
@@ -691,17 +771,44 @@ void fit(matrix W0, matrix H0, matrix X0, const float thresh,
 	init_factors(&W0, &H0, X0, M, N, K, true, MN_params, BLOCK_SIZE);
 
 	//Redo this w/ Matrix and Vectors duh!
-	const int SINIT = 2500;
-	int SHAPE = 50;
-	matrix S;
-	create_matrix(&S, SINIT, SINIT, 0);
+	//const int SINIT = 2500;
+	//int SHAPE = 50;
+	//matrix S;
+	//create_matrix(&S, SINIT, SINIT, 0);
 
-	create_nn_matrix(&S, SHAPE, SHAPE);
+	//create_nn_matrix(&S, SHAPE, SHAPE);
 
 	int count = 0;
 	float obj_old = 1e99;
-	float = nrm_Y;
-	frobenius_norm(X0, nrm_Y);
+	float nrm_Y = 0;
+	nrm_Y = frobenius_norm(X0);
+
+
+	const int maxcount = 50;
+	const float eps = 1E-05;
+
+	while (true){
+		if(count >= maxcount){ break;}
+		count ++;
+
+		update(X0, W0, H0, BLOCK_SIZE, MN_params);
+
+		matrix dot, E;
+		create_matrix_on_both(&dot, X0.dim[0], X0.dim[1], 0);
+		create_matrix_on_both(&E, X0.dim[0], X0.dim[1], 0);
+
+		matrix_multiply_d(W0, H0, dot);
+		element_subtract_d(X0, dot, E, BLOCK_SIZE);
+
+		float obj = frobenius_norm(E) / nrm_Y;
+		float delta_obj = obj - obj_old;
+
+		if(-eps < delta_obj <=0){
+			break;
+		}
+		obj_old = obj;
+	}
+
 
 	cublasShutdown();
 }
