@@ -2,7 +2,7 @@
 target    := nmf
 
 # List of sources, with .c, .cu, and .cc extensions
-sources   := matrix.cu nmf.cu
+sources   := matrix.cu vector.cu nmf.cu
 
 # Other things that need to be built, e.g. .cubin files
 extradeps := 
@@ -76,8 +76,8 @@ $(target): $(extradeps)
 $(target): $(objects) 
 	$(gcc) -o $@ $(lib_paths) $(libraries) $(objects)
 
-bench: bench.o matrix.o 
-	$(gcc) -o $@ $(lib_paths) $(libraries) bench.o matrix.o
+bench: bench.o matrix.o vector.o
+	$(gcc) -o $@ $(lib_paths) $(libraries) bench.o matrix.o vector.o
 
 %.o: %.cu
 	$(nvcc) -c $^ $(cuflags) $(cuinc_paths) -o $@ 

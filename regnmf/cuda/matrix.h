@@ -1,19 +1,12 @@
-
 #include <cublas.h>
 #include <math.h>
-
+#include "vector.h"
 
 typedef struct{
     float* mat;  //pointer to host data
     float* mat_d; //pointer to device data
     int dim[2];   //dimensions: {rows,cols}
 } matrix;
-
-typedef struct{
-    float* vec;  //pointer to host data
-    float* vec_d; //pointer to device data
-    int len;   //length of vector
-} vector;
 
 typedef enum{
     compute,
@@ -40,19 +33,8 @@ void allocate_matrix_on_device(matrix* A);
 void free_matrix_on_device(matrix* A);
 void destroy_matrix(matrix* A);
 
-void set_matrix_row(matrix* A, vector b, int N);
 void set_matrix_column(matrix* A, vector b, int N);
 
-//creating, allocating, moving vectors
-void read_vector_from_array(vector* A, int len, float* value);
-void create_vector(vector* A, int len, float value);
-void create_vector_on_device(vector* A, int len, float value);
-void create_vector_on_both(vector* A, int len, float value);
-void copy_vector_to_device(vector* A);
-void copy_vector_from_device(vector* A);
-void allocate_vector_on_device(vector* A);
-void free_vector_on_device(vector* A);
-void destroy_vector(vector* A);
 
 //matrix analysis
 void print_matrix(matrix A);
@@ -83,17 +65,13 @@ void sum_rows_d(action_t action, matrix a, matrix c, int* params);
 
 int most_interesting_column(matrix a);
 void max_columns(vector* a, matrix b);
-void matrix_column(matrix a, vector* b, int col_index);
 
-void vector_dot_product(vector a, vector b, float* out);
-void vector_outer_product(vector a, vector b, matrix* out);
-
-
-void element_div(vector* a, float denom);
-void matrix_vector_multiply_Atb(matrix a, vector b, vector *c);
 void matrix_transpose(matrix* a);
 
+void matrix_column(matrix a, vector* b, int col_index);
+void matrix_vector_multiply_Atb(matrix a, vector b, vector *c);
 void trace(matrix a, vector* b);
 void frobenius_norm(matrix a, float b);
-void vector_sqrt(vector a, float b);
+void vector_outer_product(vector a, vector b, matrix* out);
+
 

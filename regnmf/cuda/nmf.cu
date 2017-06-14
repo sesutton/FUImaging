@@ -700,7 +700,7 @@ void fit(matrix W0, matrix H0, matrix X0, const float thresh,
 
 	int count = 0;
 	float obj_old = 1e99;
-	float = nrm_Y;
+	float nrm_Y = 0;
 	frobenius_norm(X0, nrm_Y);
 
 	cublasShutdown();
