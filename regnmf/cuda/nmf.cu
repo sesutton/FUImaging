@@ -13,7 +13,7 @@
 #define CONVERGE_THRESH 1E-5
 
 // number of timers used in profiling (don't change)
-#define TIMERS 10  
+#define TIMERS 10
 char *tname[] = { "total", "sgemm", "eps", "vecdiv", "vecmult", "sumrows",
 		"sumcols", "coldiv", "rowdiv", "check" };
 
@@ -532,7 +532,7 @@ void convex_cone(matrix* W0, matrix* H0, matrix data, int latents, int* params,
 		float norm = 0;
 
 		copy_vector_to_device(&timecourse);
-		vector_dot_product(timecourse, timecourse, norm);
+		vector_dot_product(timecourse, timecourse, &norm);
 		element_div(&timecourse, sqrtf(norm));
 
 		vector base;
@@ -781,9 +781,7 @@ void fit(matrix W0, matrix H0, matrix X0, const float thresh,
 	int count = 0;
 	float obj_old = 1e99;
 	float nrm_Y = 0;
-<<<<<<< HEAD
-	frobenius_norm(X0, nrm_Y);
-=======
+
 	nrm_Y = frobenius_norm(X0);
 
 
@@ -794,7 +792,7 @@ void fit(matrix W0, matrix H0, matrix X0, const float thresh,
 		if(count >= maxcount){ break;}
 		count ++;
 
-		update(X0, W0, H0, BLOCK_SIZE, MN_params);
+		update(X0, W0, H0, BLOCK_SIZE);
 
 		matrix dot, E;
 		create_matrix_on_both(&dot, X0.dim[0], X0.dim[1], 0);
@@ -812,7 +810,6 @@ void fit(matrix W0, matrix H0, matrix X0, const float thresh,
 		obj_old = obj;
 	}
 
->>>>>>> 497fd0330432ba613dce93a7500d60787ea39d08
 
 	cublasShutdown();
 }

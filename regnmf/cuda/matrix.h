@@ -66,26 +66,16 @@ void sum_rows_d(action_t action, matrix a, matrix c, int* params);
 
 int most_interesting_column(matrix a);
 void max_columns(vector* a, matrix b);
-<<<<<<< HEAD
-=======
-void matrix_column(matrix a, vector* b, int col_index);
-
-void vector_dot_product(vector a, vector b, float out);
-void vector_outer_product(vector a, vector b, matrix* out);
->>>>>>> 497fd0330432ba613dce93a7500d60787ea39d08
 
 void matrix_transpose(matrix* a);
 
 void matrix_column(matrix a, vector* b, int col_index);
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c);
 void trace(matrix a, vector* b);
-<<<<<<< HEAD
+
 void frobenius_norm(matrix a, float b);
 void vector_outer_product(vector a, vector b, matrix* out);
 
-=======
 float frobenius_norm(matrix a);
-float vector_sqrt(vector a);
 float timenorm(vector a);
->>>>>>> 497fd0330432ba613dce93a7500d60787ea39d08
 

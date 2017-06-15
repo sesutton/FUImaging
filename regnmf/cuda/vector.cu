@@ -210,11 +210,12 @@ void vector_dot_product(vector a, vector b, float* out) {
 	//	                           float           *result)
 }
 
-void vector_sqrt(vector a, float b){
-	b = 0;
+float vector_sqrt(vector a){
+	float b = 0;
 	for (int i = 0; i < a.len; i++){
 		b += sqrt(a.vec[i]);
 	}
+	return b;
 }
 
 void element_div(vector* a, float denom) {

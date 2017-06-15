@@ -23,4 +23,4 @@ void destroy_vector(vector* A);
 void vector_dot_product(vector a, vector b, float* out);
 
 void element_div(vector* a, float denom);
-void vector_sqrt(vector a, float b);
+float vector_sqrt(vector a);
