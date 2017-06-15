@@ -12,6 +12,7 @@ __global__ void vecEps(float* a, const int N);
 __global__ void vecDiv(float* a, float* b, float* c, const int N);
 __global__ void vecMult(float* a, float* b, float* c, const int N);
 __global__ void vecSub(float* a, float* b, float* c, const int N);
+__global__ void vecAdd(float* a, float* b, float* c, const int N);
 __global__ void colDiv(float* a, float* b, float* c, int M, int N);
 __global__ void colMul(float* a, float* b, float* c, int M, int N);
 __global__ void rowDiv(float* a, float* b, float* c, int M, int N);
@@ -31,7 +32,6 @@ __global__ void reduce1DNan(float *g_idata1, float *g_odata, int N);
 template<unsigned int blockSize>
 __global__ void reduce1DEql(float *g_idata1, float *g_odata, int N);
 void grid2D(dim3* dimGrid);
-
 
 //creating, allocating, moving matrices
 
@@ -192,12 +192,12 @@ void create_matrix_on_both(matrix* A, int rows, int cols, float value) {
 
 }
 
-void replace_matrix(matrix* a, matrix b){
+void replace_matrix(matrix* a, matrix b) {
 	a->dim[0] = b.dim[0];
 	a->dim[1] = b.dim[1];
 
 	a->mat = b.mat;
-	a->mat_d = b.mat;
+	a->mat_d = b.mat_d;
 
 }
 
@@ -489,7 +489,7 @@ void destroy_matrix(matrix* A) {
 	A->dim[1] = 0;
 }
 
-void set_matrix_column(matrix* A, vector b, int N){
+void set_matrix_column(matrix* A, vector b, int N) {
 	int col = A->dim[1];
 
 	int start = col * N;
@@ -501,6 +501,194 @@ void set_matrix_column(matrix* A, vector b, int N){
 
 //creating, allocating, moving vectors
 
+<<<<<<< HEAD
+=======
+void read_vector_from_array(vector* A, int len, float* value) {
+	//create vector with all elements from 'value'
+	//vector length is len
+	//set A->vec_d to NULL
+
+	A->len = len;
+	//cudaMallocHost((void**)&(A->mat),sizeof(float)*N); //page-locked memory (faster but limited)
+	A->vec = (float*) malloc(sizeof(float) * len);
+	A->vec = value;
+
+	if (A->vec_d != NULL)
+		cudaFree(A->vec_d);
+	A->vec_d = NULL;
+
+	//printf("read float as [%ix%i]\n",A->dim[0],A->dim[1]);
+}
+
+void create_vector(vector* A, int len, float value) {
+	//create vector with all elements equal to 'value'
+	//vector length is len
+	//set A->vec_d to NULL
+
+	A->len = len;
+	A->vec = (float*) malloc(sizeof(float) * len);
+	for (int i = 0; i < len; i++)
+		A->vec[i] = value;
+
+	if (A->vec_d != NULL)
+		cudaFree(A->vec_d);
+
+	A->vec_d = NULL;
+}
+
+void create_vector_on_device(vector* A, int len, float value) {
+	//create vector on device  with all elements equal to 'value'
+	//vector length is len
+
+	A->len = len;
+	A->vec = NULL;
+
+	cudaError_t err;
+	err = cudaMalloc((void**) &(A->vec_d), sizeof(float) * len);
+	//printf("device pointer: %p\n",A->mat_d);
+	if (err != cudaSuccess) {
+		fprintf(stderr,
+				"create_vector_on_device: cudaMalloc: ErrorMemoryAllocation\n");
+		exit(1);
+	}
+
+	float *temp = (float*) malloc(sizeof(float) * len);
+	for (int i = 0; i < len; i++)
+		temp[i] = value;
+	cudaMemcpy(A->vec_d, temp, sizeof(float) * len, cudaMemcpyHostToDevice);
+
+	free(temp);
+
+}
+
+void create_vector_on_both(vector* A, int len, float value) {
+	//create vector on device  with all elements equal to 'value'
+	//vector length is len
+
+	A->len = len;
+	cudaError_t err;
+
+	err = cudaMalloc((void**) &(A->vec_d), sizeof(float) * len);
+	if (err != cudaSuccess) {
+		fprintf(stderr,
+				"create_vector_on_both: cudaMalloc: ErrorMemoryAllocation\n");
+		exit(1);
+	}
+
+	A->vec = (float*) malloc(sizeof(float) * len);
+	for (int i = 0; i < len; i++)
+		A->vec[i] = value;
+	cudaMemcpy(A->vec_d, A->vec, sizeof(float) * len, cudaMemcpyHostToDevice);
+
+}
+
+void copy_vector_to_device(vector* A) {
+
+	cudaError_t err;
+
+	if (A->vec == NULL) {
+		fprintf(stderr,
+				"copy_vector_to_device: vector not allocated on host\n");
+		exit(1);
+	}
+	if (A->vec_d == NULL) {
+		err = cudaMalloc((void**) &(A->vec_d), sizeof(float) * A->len);
+		if (err != cudaSuccess) {
+			fprintf(stderr, "copy_vector_to_device: cudaMalloc: FAIL\n");
+			exit(1);
+		}
+	}
+
+	err = cudaMemcpy(A->vec_d, A->vec, sizeof(float) * A->len,
+			cudaMemcpyHostToDevice);
+	switch (err) {
+	case cudaErrorInvalidValue:
+		fprintf(stderr, "copy_vector_to_device: cudaMemcpy: InvalidValue\n");
+		exit(1);
+		break;
+	case cudaErrorInvalidDevicePointer:
+		fprintf(stderr,
+				"copy_vector_to_device: cudaMemcpy: InvalidDevicePointer\n");
+		exit(1);
+		break;
+	case cudaErrorInvalidMemcpyDirection:
+		fprintf(stderr,
+				"copy_vector_to_device: cudaMemcpy: InvalidMemcpyDirection\n");
+		exit(1);
+		break;
+	}
+}
+
+void copy_vector_from_device(vector* A) {
+
+	if (A->vec_d == NULL) {
+		fprintf(stderr,
+				"copy_vector_from_device: vector not allocated on device\n");
+		exit(1);
+	}
+	if (A->vec == NULL)
+		cudaMallocHost((void**) &(A->vec), sizeof(float) * A->len);
+	//A->mat = (float*)malloc(sizeof(float)*N);
+
+	cudaError_t err;
+	err = cudaMemcpy(A->vec, A->vec_d, sizeof(float) * A->len,
+			cudaMemcpyDeviceToHost);
+	switch (err) {
+	case cudaErrorInvalidValue:
+		fprintf(stderr, "copy_vector_from_device: cudaMemcpy: InvalidValue\n");
+		exit(1);
+		break;
+	case cudaErrorInvalidDevicePointer:
+		fprintf(stderr,
+				"copy_vector_from_device: cudaMemcpy: InvalidDevicePointer\n");
+		exit(1);
+		break;
+	case cudaErrorInvalidMemcpyDirection:
+		fprintf(stderr,
+				"copy_vector_from_device: cudaMemcpy: InvalidMemcpyDirection\n");
+		exit(1);
+		break;
+	}
+}
+
+void allocate_vector_on_device(vector* A) {
+	cudaError_t err;
+
+	if (A->vec == NULL) {
+		fprintf(stderr,
+				"allocate_vector_on_device: vector not allocated on host\n");
+		exit(1);
+	}
+	if (A->vec_d == NULL) {
+		err = cudaMalloc((void**) &(A->vec_d), sizeof(float) * A->len);
+		if (err != cudaSuccess) {
+			fprintf(stderr, "allocate_vector_on_device: cudaMalloc: FAIL\n");
+			exit(1);
+		}
+	} else {
+		fprintf(stderr,
+				"allocate_vector_on_device: vector already allocated on device");
+		exit(1);
+	}
+}
+
+void free_vector_on_device(vector* A) {
+	if (A->vec_d != NULL)
+		cudaFree(A->vec_d);
+	A->vec_d = NULL;
+}
+
+void destroy_vector(vector* A) {
+	if (A->vec != NULL)
+		cudaFreeHost(A->vec);
+	A->vec = NULL;
+	if (A->vec_d != NULL)
+		cudaFree(A->vec_d);
+	A->vec_d = NULL;
+
+	A->len = 0;
+}
+>>>>>>> 497fd0330432ba613dce93a7500d60787ea39d08
 
 //matrix analysis
 
@@ -1308,7 +1496,7 @@ void element_divide_d(matrix a, matrix b, matrix c, int block_size) {
 	vecDiv<<<dimGrid, dimBlock>>>(a.mat_d, b.mat_d, c.mat_d, N);
 }
 
-void element_subtract_d(matrix a, matrix b, matrix c, int block_size){
+void element_subtract_d(matrix a, matrix b, matrix c, int block_size) {
 	// c = a.-b
 
 	if (a.dim[0] != b.dim[0] || a.dim[0] != c.dim[0] || a.dim[1] != b.dim[1]
@@ -1324,6 +1512,25 @@ void element_subtract_d(matrix a, matrix b, matrix c, int block_size){
 		grid2D(&dimGrid);
 
 	vecSub<<<dimGrid, dimBlock>>>(a.mat_d, b.mat_d, c.mat_d, N);
+
+}
+
+void element_addition_d(matrix a, matrix b, matrix c, int block_size) {
+	// c = a.-b
+
+	if (a.dim[0] != b.dim[0] || a.dim[0] != c.dim[0] || a.dim[1] != b.dim[1]
+			|| a.dim[1] != c.dim[1]) {
+		fprintf(stderr, "element_divide_d: dimensions do not agree\n");
+		exit(1);
+	}
+
+	const int N = a.dim[0] * a.dim[1];
+	dim3 dimBlock(block_size);
+	dim3 dimGrid((N / dimBlock.x) + (!(N % dimBlock.x) ? 0 : 1));
+	if (dimGrid.x > MAX_BLOCKS)
+		grid2D(&dimGrid);
+
+	vecAdd<<<dimGrid, dimBlock>>>(a.mat_d, b.mat_d, c.mat_d, N);
 
 }
 
@@ -1348,7 +1555,6 @@ void matrix_eps(matrix a) {
 			a.mat[i] = EPS;
 	}
 }
-
 
 //row/col-wise
 
@@ -1739,6 +1945,14 @@ __global__ void vecSub(float* a, float* b, float* c, const int N) {
 			+ threadIdx.x;
 	if (i < N)
 		c[i] = a[i] - b[i];
+}
+
+__global__ void vecAdd(float* a, float* b, float* c, const int N) {
+	//const int i = blockIdx.x*blockDim.x + threadIdx.x;
+	const int i = gridDim.x * blockDim.x * blockIdx.y + blockIdx.x * blockDim.x
+			+ threadIdx.x;
+	if (i < N)
+		c[i] = a[i] + b[i];
 }
 
 __global__ void vecEps(float* a, const int N) {
@@ -2209,7 +2423,6 @@ int most_interesting_column(matrix a) {
 
 	max_columns(&column_maxs, a);
 
-
 	float max_val = 0;
 	int max_index;
 
@@ -2245,12 +2458,59 @@ void matrix_column(matrix a, vector* b, int col_index) {
 	}
 }
 
+<<<<<<< HEAD
+=======
+void vector_dot_product(vector a, vector b, float out) {
+	int N = a.len;
+
+	if (a.len != b.len) {
+		fprintf(stderr, "vector_dot_product: length of vectors don't match");
+		exit(1);
+	}
+
+	out = cublasSdot(N, a.vec_d, 1, b.vec_d, 1);
+	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
+		fprintf(stderr, "vector_outer_product: NOT SUCCESS\n");
+		exit(1);
+	}
+
+	//cublasStatus_t cublasSdot (cublasHandle_t handle, int n,
+	//	                           const float           *x, int incx,
+	//	                           const float           *y, int incy,
+	//	                           float           *result)
+}
+
+void vector_outer_product(vector a, vector b, matrix* out) {
+	float alf = 1.0;
+	int row = a.len;
+	int col = b.len;
+
+	cublasSger(row, col, alf, a.vec_d, 1, b.vec_d, 1, out->mat_d, row);
+	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
+		fprintf(stderr, "vector_outer_product: NOT SUCCESS\n");
+		exit(1);
+	}
+
+	//cublasStatus_t  cublasSger(cublasHandle_t handle, int m, int n,
+	//                           const float           *alpha,
+	//                           const float           *x, int incx,
+	//                           const float           *y, int incy,
+	//                           float           *A, int lda)
+}
+
+void element_div(vector* a, float denom) {
+	for (int i = 0; i < a->len; i++)
+		a->vec[i] /= denom;
+}
+
+>>>>>>> 497fd0330432ba613dce93a7500d60787ea39d08
 void matrix_vector_multiply_Atb(matrix a, vector b, vector *c) {
 	float const alf = 1.0;
 	float const beta = 0.0;
 	int row = a.dim[0];
 	int col = a.dim[1];
-	cublasSgemv('T', col, row, alf, a.mat_d, col, b.vec_d, 1, beta, c->vec_d, 1);
+	cublasSgemv('T', col, row, alf, a.mat_d, col, b.vec_d, 1, beta, c->vec_d,
+			1);
 	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
 		fprintf(stderr, "matrix_multiply_d: NOT SUCCESS\n");
 		exit(1);
@@ -2264,8 +2524,9 @@ void matrix_vector_multiply_Atb(matrix a, vector b, vector *c) {
 	//float           *y, int incy)
 }
 
-
-void matrix_transpose(matrix* a){
+void matrix_transpose(matrix* a) {
+	matrix clone;
+	replace_matrix(&clone, *a);
 	matrix temp;
 	create_matrix_on_both(&temp, a->dim[1], a->dim[0], 0);
 
@@ -2273,32 +2534,43 @@ void matrix_transpose(matrix* a){
 	float const beta(0.0);
 	int row = a->dim[0];
 	int col = a->dim[1];
-	cublasHandle_t handle;
 
-	cublasSgeam(handle, CUBLAS_OP_T, CUBLAS_OP_N, row, col, &alpha, a->mat_d, col, &beta, a->mat_d, row, temp.mat_d, row );
+	cublasHandle_t handle;
+	cublasSgeam(handle, CUBLAS_OP_T, CUBLAS_OP_N, row, col, &alpha, a->mat_d, col, &beta, clone.mat_d, row, temp.mat_d, row );
 	if (cublasGetError() != CUBLAS_STATUS_SUCCESS) {
 			fprintf(stderr, "matrix_multiply_d: NOT SUCCESS\n");
 			exit(1);
 	}
+
 	replace_matrix(a, temp);
 }
 
-void trace(matrix a, vector* b){
-		for (int i = 0; i < a.dim[0]; i++){
-			 b->vec[i] =  a.mat[i + a.dim[0] * i];
-		}
+void trace(matrix a, vector* b) {
+	for (int i = 0; i < a.dim[0]; i++) {
+		b->vec[i] = a.mat[i + a.dim[0] * i];
+	}
 }
 
-void frobenius_norm(matrix a, float b){
+float frobenius_norm(matrix a) {
 	//sqrt/trace(Y*YH)
+
+	copy_matrix_to_device(&a);
+
+	matrix aclone;
+	replace_matrix(&aclone, a);
+
 	int rows = a.dim[0];
+
 	matrix matmul;
-	create_matrix_on_both(&matmul,rows, rows, 0);
-	matrix_multiply_ABt_d(a, a, matmul);
+	create_matrix_on_both(&matmul, rows, rows, 0);
+
+	matrix_multiply_ABt_d(a, aclone, matmul);
+	copy_matrix_from_device(&matmul);
+
 	vector traceVec;
 	create_vector(&traceVec, rows, 0);
-	copy_matrix_to_device(&a);
 	trace(matmul, &traceVec);
+<<<<<<< HEAD
 	vector_sqrt( traceVec, b);
 }
 
@@ -2318,9 +2590,24 @@ void vector_outer_product(vector a, vector b, matrix* out){
 	//                           const float           *x, int incx,
 	//                           const float           *y, int incy,
 	//                           float           *A, int lda)
+=======
+	return vector_sqrt(traceVec);
 }
 
+float vector_sqrt(vector a) {
+	float res = 0;
+	for (int i = 0; i < a.len; i++) {
+		res += sqrt(a.vec[i]);
+	}
+	return res;
+>>>>>>> 497fd0330432ba613dce93a7500d60787ea39d08
+}
 
+float timenorm(vector a) {
+	float b = 0;
+	vector_dot_product(a, a, b);
+	return sqrt(b);
+}
 
 
 

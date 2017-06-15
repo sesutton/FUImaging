@@ -168,6 +168,7 @@ class regHALS(object):
             Rt = E + np.outer(aj, xj)
             xj = self.project_residuals(Rt.T, j, aj, self.sparse_param, self.smooth_param,
                                        X=X, sparse_fct=self.sparse_fct)
+
             xj /= self.basenorm(xj) + self.psi
 
             aj = self.project_residuals(Rt, j, xj, rectify=not(self.neg_time), X=A.T)
